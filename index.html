@@ -1,0 +1,447 @@
+<html>
+<head>
+<title>Color Picker</title>
+<script src='jquery.js'></script>
+<script src='livequery.js'></script>
+<script>
+var sampleCount = 0;
+var sampleMoving = false;
+var sliderMoving = false;
+var itemId;
+
+//starting RGB values
+var red = 72;
+var green = 161;
+var blue = 124;
+
+$(document).ready(function() {
+	setUp();
+	
+	//mousedown function for the color samples
+	$(".sample").livequery(function() {
+		$(this).mousedown(function() {
+			sampleMoving = true;
+			item = $(this).attr("id");
+			
+			//update the z-index values
+			$(".sample").each(function(i, item) {
+				$(item).css("z-index", '0');
+			});
+			$(this).css("z-index", "1");
+		})
+	});
+	
+	//mouseup function
+	$(document).mouseup(function() {
+		sampleMoving = false;
+		sliderMoving = false;
+	});
+	
+	//mousedown function for the sliders
+	$(".sliderKnob").mousedown(function() {
+		sliderMoving = true;
+		item = $(this).attr("id");
+	});
+	
+	//this function adds a new color sample
+	$("#saveButton").click(function() {
+		sampleCount++;
+		
+		$("#sampleContainer").append("<div class='sample' id='sample" + 			
+			sampleCount +"' title='Double click to select'></div>");
+			
+		//set the sample width and height
+		$(".sample:last").css("width", parseInt($(document).width() * .1));
+		$(".sample:last").css("height", parseInt($(document).width() * .1));
+		
+		//set the sample color
+		var color = "rgb(";
+		color += red + ",";
+		color += green + ",";
+		color += blue + ")";
+		$(".sample:last").css("background", color);
+	});
+	
+	//this function open the copy dialog box
+	$("#copyButton").click(function() {
+		if ($("#type").val() == "RGB") {
+			window.prompt("Copy with Ctrl-C", red + ", " + green + ", " + blue);
+		} else {
+			//convert values to hex
+			var hexCode = "#" + getHex(red) + getHex(green) + getHex(blue);
+			window.prompt("Copy with Ctrl-C", hexCode);
+		}
+	});
+	
+	//this function deletes the sample when the X is clicked
+	$("#closeButton").livequery(function() {
+		$(this).click(function() {
+			$(this).parent().remove();
+		})
+	});
+	
+	//set main color on sample double click
+	$(".sample").livequery(function() {
+		$(this).dblclick(function() {
+			updateMainColor($(this).css("background"));
+			
+			//toggle the current border
+			if ($(this).css("border").indexOf("solid") > 0) {
+				needsBorder = false;
+			} else {
+				needsBorder = true;
+			}
+			
+			//update the border values
+			$(".sample").each(function(i, item) {
+				$(this).css("border", "none");
+			});
+			
+			//hide the delete button
+			$("#closeButton").remove();
+			
+			//toggle the border and the delete button
+			if (needsBorder) {
+				//update the border
+				$(this).css("border", "2px solid black");
+				
+				//show the delete button
+				$(this).append("<img src='close.png' id='closeButton'>");
+			} 
+			
+			
+		});
+	});
+	
+	//mousemove function for the document
+	$(document).on('mousemove', function(e) {
+		//move the color sample
+		if (sampleMoving) {
+			$("#" + item).css("left", parseInt(e.pageX - $(document).width() * .5 - ($(document).width() * .05)));
+			$("#" + item).css("top", parseInt(e.pageY - ($(document).width() * .05)));
+			
+		//move the slider knob
+		} else if (sliderMoving) {
+			$("#" + item).css("left", parseInt(e.pageX - $(document).width() * .5)-32);
+			
+			//get the knob position
+			var knobLeft = $("#" + item).css("left");
+			knobLeft = parseInt(knobLeft.replace("px", ""));
+			
+			//get the track width
+			var name = item.replace("Knob", "Track");
+			var trackWidth = $("#" + name).css("width");
+			trackWidth = parseInt(trackWidth.replace("px", "")) - 32;
+			
+			var updateLabel = true;
+			if (knobLeft < 0) {
+				$("#" + item).css("left", "0px");
+				updateLabel = false;
+			}
+			
+			if (knobLeft  > trackWidth) {
+				$("#" + item).css("left", trackWidth);
+				updateLabel = false;
+			}
+			
+			//update colors			
+			var percent = knobLeft / trackWidth;
+			
+			//position the knobs
+			if (item == "redKnob") {
+				red = parseInt(percent * 255);
+				if (updateLabel) {
+					if ($("#type").val() == "RGB") {
+						$("#" + item).text(red);
+					} else {
+						$("#" + item).text(getHex(red));
+					}
+				}
+			} else if (item == "greenKnob") {
+				green = parseInt(percent * 255);
+				if (updateLabel) {
+					if ($("#type").val() == "RGB") {
+						$("#" + item).text(green);
+					} else {
+						$("#" + item).text(getHex(green));
+					}
+				}
+			} else if (item == "blueKnob") {
+				blue = parseInt(percent * 255);
+				if (updateLabel) {
+					if ($("#type").val() == "RGB") {
+						$("#" + item).text(blue);
+					} else {
+						$("#" + item).text(getHex(blue));
+					}
+				}
+			}
+			
+			//set the main sample background color
+			var color = "rgb(";
+			color += red + ",";
+			color += green + ",";
+			color += blue + ")";
+			$("#colorContainer").css("background", color);
+		}
+	});
+	
+	//resizes and positions elements on window resize
+	$(window).resize(function() {
+		setSize();
+	});
+});
+
+//this function changes the main left panel to the current RGB color
+function updateMainColor(background) {
+	var start = background.indexOf("(");
+	var end = background.indexOf(")");
+	background = background.substring(start+1, end);
+	var values = background.split(",");
+	
+	//set the new RGB values
+	red = parseInt(values[0]);
+	green = parseInt(values[1]);
+	blue = parseInt(values[2]);
+	
+	//reposition the knobs
+	setKnobs();
+	
+	//set the main color
+	var color = "rgb(";
+	color += red + ",";
+	color += green + ",";
+	color += blue + ")";
+	$("#colorContainer").css("background", color);
+}
+
+function getHex(value) {
+	var temp = parseInt(value / 16);
+	var convertedValue = "";
+	for (i=0; i<2; i++) {
+		if (temp < 10) {
+			convertedValue += temp;
+		} else {
+			if (temp == 10) {
+				convertedValue += "A";
+			} else if (temp == 11) {
+				convertedValue += "B";
+			} else if (temp == 12) {
+				convertedValue += "C";
+			} else if (temp == 13) {
+				convertedValue += "D";
+			} else if (temp == 14) {
+				convertedValue += "E";
+			} else if (temp == 15) {
+				convertedValue += "F";
+			}
+		}
+		
+		temp = value % 16;
+	}
+	
+	return convertedValue;
+}
+
+function updateKnobs() {
+	if ($("#type").val() == "RGB") {
+		$("#redKnob").text(red);
+		$("#greenKnob").text(green);
+		$("#blueKnob").text(blue);
+	} else {
+		$("#redKnob").text(getHex(red));
+		$("#greenKnob").text(getHex(green));
+		$("#blueKnob").text(getHex(blue));
+	}
+}
+
+function setUp() {
+	setSize();
+	setKnobs();
+	
+	//set the main color
+	var color = "rgb(";
+	color += red + ",";
+	color += green + ",";
+	color += blue + ")";
+	$("#colorContainer").css("background", color);
+}
+
+//this function sets the size and position of various elements
+function setSize() {
+	var tenPercentWidth = parseInt($(document).width() * .1);
+	$(".sample").css("height", tenPercentWidth);
+	$(".sample").css("width", tenPercentWidth);
+}
+
+function setKnobs() {
+	//put the number values on the slider knobs
+	$("#redKnob").text(red);
+	$("#greenKnob").text(green);
+	$("#blueKnob").text(blue);
+	
+	//position the knobs
+	var trackWidth = $("#redTrack").css("width");
+	trackWidth = parseInt(trackWidth.replace("px", "") - 32);
+	var percent = red / 255;
+	$("#redKnob").animate({left: parseInt(percent * trackWidth)}, "slow", "linear");
+	percent = green / 255;
+	$("#greenKnob").animate({left: parseInt(percent * trackWidth)}, "slow", "linear");
+	percent = blue / 255;
+	$("#blueKnob").animate({left: parseInt(percent * trackWidth)}, "slow", "linear");
+}
+
+</script>
+<style type='text/css'>
+body {
+	-webkit-user-select: none;  
+  	-moz-user-select: none;    
+  	-ms-user-select: none;      
+  	user-select: none;
+}
+
+#colorContainer {
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	width: 50%;
+	height: 100%;
+	background: rgb(142, 92, 55);
+}
+
+#title {
+	position: absolute;
+	top: 20px;
+	width: 100%;
+	text-align:center;
+	color: white;
+	font: 60px "Brush Script MT", sans-serif;
+}
+
+#sampleContainer {
+	position: absolute;
+	top: 0px;
+	left: 50%;
+	width: 50%;
+	height: 60%;
+	padding-left: 10px;
+	overflow: hidden;
+}
+
+.sample {
+	position: absolute;
+	margin: 5px;
+	float: left;
+	background: gray;
+	cursor: move;
+}
+
+#controlContainer {
+	position: absolute;
+	top: 60%;
+	left: 50%;
+	width: 50%;
+	height: 40%;
+}
+
+.sliderTrack {
+	position: relative;
+	left: 5%;
+	width: 90%;
+	height: 12px;
+	margin-top: 30px;
+	border-radius: 6px;
+	background: black;
+}
+
+#redTrack {
+	background: rgb(213, 64, 56);
+}
+
+#greenTrack {
+	background: rgb(76, 157, 104);
+}
+
+#blueTrack {
+	background: rgb(72, 107, 161);
+}
+
+.sliderKnob {
+	position: relative;
+	top: -10px;
+	left: 0px;
+	height: 32px;
+	width: 32px;
+	border-radius: 16px;
+	background: gray;
+	color: white;
+	text-align: center;
+	line-height: 32px;
+	cursor: pointer;
+}
+
+.control {
+	position: absolute;
+	top: 170px;
+	width: 100px;
+	height: 40px;
+	cursor: pointer;
+	border-radius: 6px;
+	background: white;
+	border: 1px solid #aaa;
+	font-size: 15px;
+}
+
+#saveButton {
+	top: 170px;
+	left: 40%;
+}
+
+#copyButton {
+	top: 170px;
+	left: 70%;
+}
+
+#closeButton {
+	position: absolute;
+	top: -13px;
+	left: -13px;
+	width: 26px;
+	cursor: pointer;
+}
+
+#type {
+	left: 10%;
+	background: rgba(0, 0, 0, 0);
+}
+
+</style>
+</head>
+<body>
+<div id='colorContainer'>
+	<div id='title'>Color Picker</div>
+</div>
+
+<div id='sampleContainer'>
+</div>
+
+<div id='controlContainer'>
+	<div class='sliderTrack' id='redTrack'>
+		<div class='sliderKnob' id='redKnob'></div>
+	</div>
+	<div class='sliderTrack' id='greenTrack'>
+		<div class='sliderKnob' id='greenKnob'></div>
+	</div>
+	<div class='sliderTrack' id='blueTrack'>
+		<div class='sliderKnob' id='blueKnob'></div>
+	</div>
+	
+	<select class='control' id='type' onchange='updateKnobs()'>
+		<option>RGB</option>
+		<option>Hex</option>
+	</select>
+	<button class='control' id='saveButton' title='Save main color to palette'>Save Color</button>
+	<button class='control' id='copyButton' title='Copy main color values'>Copy Color</button>
+</div>
+</body>
+</html>
